@@ -21,6 +21,10 @@ env/
 
 # 로그인 설정 (비밀번호 해시 포함)
 config.yaml
+pending_users.yaml
+
+# 환경변수 (SMTP 비밀번호 포함)
+.env
 
 # IDE
 .vscode/

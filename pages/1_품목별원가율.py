@@ -4,6 +4,10 @@ import plotly.express as px
 import sys
 from pathlib import Path
 
+if not st.session_state.get("authentication_status"):
+    st.warning("로그인이 필요합니다. 홈 화면에서 로그인해 주세요.")
+    st.stop()
+
 sys.path.append(str(Path(__file__).parent.parent))
 from src.loaders import load_excel, load_sample
 from src.cost_analyzer import calc_cost_rates, get_summary, to_excel_bytes

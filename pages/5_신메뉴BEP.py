@@ -4,6 +4,10 @@ import pandas as pd
 import sys
 from pathlib import Path
 
+if not st.session_state.get("authentication_status"):
+    st.warning("로그인이 필요합니다. 홈 화면에서 로그인해 주세요.")
+    st.stop()
+
 sys.path.append(str(Path(__file__).parent.parent))
 
 st.set_page_config(page_title="신메뉴 BEP", page_icon="🆕", layout="wide")

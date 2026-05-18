@@ -3,6 +3,10 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import sys
+
+if not st.session_state.get("authentication_status"):
+    st.warning("로그인이 필요합니다. 홈 화면에서 로그인해 주세요.")
+    st.stop()
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).parent.parent))

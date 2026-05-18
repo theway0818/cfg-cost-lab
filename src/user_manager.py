@@ -1,15 +1,14 @@
 import yaml
 import bcrypt
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent.parent / ".env")
+load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
 CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 PENDING_PATH = Path(__file__).parent.parent / "pending_users.yaml"
-CODE_EXPIRY_MINUTES = 10
 
 
 def _load_config() -> dict:
@@ -35,7 +34,7 @@ def _save_pending(pending: dict) -> None:
 
 
 def get_allowed_domain() -> str:
-    return os.environ.get("ALLOWED_DOMAIN", "cafegate.co.kr")
+    return os.environ.get("ALLOWED_DOMAIN", "ephgroup.co.kr")
 
 
 def is_email_registered(email: str) -> bool:
@@ -49,43 +48,40 @@ def is_email_pending(email: str) -> bool:
     return email in pending
 
 
-def add_pending_user(email: str, name: str, password: str, code: str) -> None:
+def add_pending_user(email: str, name: str, password: str) -> None:
+    """회원가입 신청 — 관리자 승인 대기 상태로 저장."""
     pending = _load_pending()
     hashed_pw = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
     pending[email] = {
         "name": name,
         "password": hashed_pw,
-        "code": code,
-        "expires_at": (datetime.now() + timedelta(minutes=CODE_EXPIRY_MINUTES)).isoformat(),
+        "requested_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
     _save_pending(pending)
 
 
-def verify_and_activate(email: str, code: str) -> tuple[bool, str]:
-    """인증 코드 확인 후 계정 활성화. (성공여부, 메시지) 반환."""
+def get_pending_list() -> list[dict]:
+    """관리자용 — 승인 대기 목록 반환."""
     pending = _load_pending()
+    return [
+        {"email": email, "name": info["name"], "requested_at": info["requested_at"]}
+        for email, info in pending.items()
+    ]
 
+
+def approve_user(email: str) -> str:
+    """관리자 승인 — pending → config.yaml 이동."""
+    pending = _load_pending()
     if email not in pending:
-        return False, "인증 요청 정보가 없습니다. 다시 회원가입을 시도해 주세요."
+        return "해당 신청자를 찾을 수 없습니다."
 
     entry = pending[email]
-    expires_at = datetime.fromisoformat(entry["expires_at"])
-
-    if datetime.now() > expires_at:
-        del pending[email]
-        _save_pending(pending)
-        return False, f"인증 코드가 만료되었습니다 ({CODE_EXPIRY_MINUTES}분 초과). 다시 회원가입을 시도해 주세요."
-
-    if entry["code"] != code.strip():
-        return False, "인증 코드가 올바르지 않습니다."
-
-    # 계정 활성화
     config = _load_config()
+
+    # 아이디: 이메일 @ 앞부분, 중복 시 숫자 붙임
     username = email.split("@")[0].replace(".", "_")
-    # 중복 username 처리
     existing = config["credentials"]["usernames"]
-    base = username
-    i = 2
+    base, i = username, 2
     while username in existing:
         username = f"{base}{i}"
         i += 1
@@ -99,5 +95,12 @@ def verify_and_activate(email: str, code: str) -> tuple[bool, str]:
 
     del pending[email]
     _save_pending(pending)
+    return username
 
-    return True, f"회원가입이 완료되었습니다. 아이디: {username}"
+
+def reject_user(email: str) -> None:
+    """관리자 거절 — pending에서 삭제."""
+    pending = _load_pending()
+    if email in pending:
+        del pending[email]
+        _save_pending(pending)

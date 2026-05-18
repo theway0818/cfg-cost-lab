@@ -6,13 +6,11 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).parent))
-from src.email_sender import generate_code, send_verification_email
 from src.user_manager import (
     get_allowed_domain,
     is_email_registered,
     is_email_pending,
     add_pending_user,
-    verify_and_activate,
 )
 
 st.set_page_config(
@@ -21,7 +19,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── 인증 설정 로드 ────────────────────────────────────────────
 config_path = Path(__file__).parent / "config.yaml"
 with open(config_path, encoding="utf-8") as f:
     config = yaml.load(f, Loader=SafeLoader)
@@ -33,7 +30,7 @@ authenticator = stauth.Authenticate(
     config["cookie"]["expiry_days"],
 )
 
-# ── 로그인 / 회원가입 / 인증 탭 ──────────────────────────────
+# ── 미로그인 상태 ─────────────────────────────────────────────
 if not st.session_state.get("authentication_status"):
 
     st.markdown(
@@ -43,7 +40,7 @@ if not st.session_state.get("authentication_status"):
         unsafe_allow_html=True,
     )
 
-    tab_login, tab_register, tab_verify = st.tabs(["🔑 로그인", "📝 회원가입", "✉️ 이메일 인증"])
+    tab_login, tab_register = st.tabs(["🔑 로그인", "📝 회원가입 신청"])
 
     # ── 로그인 탭 ────────────────────────────────────────────
     with tab_login:
@@ -51,78 +48,50 @@ if not st.session_state.get("authentication_status"):
         if st.session_state.get("authentication_status") is False:
             st.error("아이디 또는 비밀번호가 올바르지 않습니다.")
 
-    # ── 회원가입 탭 ──────────────────────────────────────────
+    # ── 회원가입 신청 탭 ─────────────────────────────────────
     with tab_register:
         allowed_domain = get_allowed_domain()
-        st.markdown(f"**회사 이메일(@{allowed_domain})** 로만 가입할 수 있습니다.")
-        st.markdown("---")
+        st.info(
+            f"**@{allowed_domain}** 회사 이메일로만 신청할 수 있습니다.  \n"
+            "관리자 승인 후 로그인이 가능합니다."
+        )
 
         with st.form("register_form"):
-            reg_name = st.text_input("이름", placeholder="홍길동")
-            reg_email = st.text_input(
-                "회사 이메일",
-                placeholder=f"example@{allowed_domain}",
-            )
-            reg_pw = st.text_input("비밀번호 (8자 이상)", type="password")
-            reg_pw2 = st.text_input("비밀번호 확인", type="password")
-            submitted = st.form_submit_button("인증 코드 받기", use_container_width=True, type="primary")
+            reg_name  = st.text_input("이름", placeholder="홍길동")
+            reg_email = st.text_input("회사 이메일", placeholder=f"example@{allowed_domain}")
+            reg_pw    = st.text_input("비밀번호 (8자 이상)", type="password")
+            reg_pw2   = st.text_input("비밀번호 확인", type="password")
+            submitted = st.form_submit_button("가입 신청하기", use_container_width=True, type="primary")
 
         if submitted:
             error = None
             if not reg_name.strip():
                 error = "이름을 입력해 주세요."
-            elif not reg_email.strip().endswith(f"@{allowed_domain}"):
-                error = f"회사 이메일(@{allowed_domain})만 가입 가능합니다."
+            elif not reg_email.strip().lower().endswith(f"@{allowed_domain}"):
+                error = f"@{allowed_domain} 회사 이메일만 가입 신청이 가능합니다."
             elif len(reg_pw) < 8:
                 error = "비밀번호는 8자 이상이어야 합니다."
             elif reg_pw != reg_pw2:
                 error = "비밀번호가 일치하지 않습니다."
-            elif is_email_registered(reg_email.strip()):
+            elif is_email_registered(reg_email.strip().lower()):
                 error = "이미 가입된 이메일입니다. 로그인 탭에서 로그인해 주세요."
+            elif is_email_pending(reg_email.strip().lower()):
+                error = "이미 가입 신청 중입니다. 관리자 승인을 기다려 주세요."
 
             if error:
                 st.error(error)
             else:
-                code = generate_code()
-                try:
-                    send_verification_email(reg_email.strip(), reg_name.strip(), code)
-                    add_pending_user(reg_email.strip(), reg_name.strip(), reg_pw, code)
-                    st.success(
-                        f"**{reg_email.strip()}** 으로 인증 코드를 발송했습니다.  \n"
-                        "받은편지함을 확인하고 **'이메일 인증' 탭**에서 코드를 입력해 주세요."
-                    )
-                    st.info("스팸 메일함도 확인해 보세요.")
-                except EnvironmentError as e:
-                    st.error(f"이메일 발송 설정 오류: {e}")
-                except Exception as e:
-                    st.error(f"이메일 발송 실패: {e}  \n관리자에게 문의해 주세요.")
-
-    # ── 이메일 인증 탭 ────────────────────────────────────────
-    with tab_verify:
-        st.markdown("회원가입 후 이메일로 받은 **6자리 인증 코드**를 입력해 주세요.")
-        st.markdown("---")
-
-        with st.form("verify_form"):
-            verify_email = st.text_input("가입 시 입력한 이메일")
-            verify_code = st.text_input("인증 코드 (6자리)", max_chars=6, placeholder="123456")
-            verify_submitted = st.form_submit_button("인증 완료", use_container_width=True, type="primary")
-
-        if verify_submitted:
-            if not verify_email.strip() or not verify_code.strip():
-                st.error("이메일과 인증 코드를 모두 입력해 주세요.")
-            else:
-                success, message = verify_and_activate(verify_email.strip(), verify_code.strip())
-                if success:
-                    st.success(f"✅ {message}")
-                    st.info("이제 **로그인 탭**에서 회사 이메일 아이디로 로그인하세요.")
-                    st.balloons()
-                else:
-                    st.error(message)
+                add_pending_user(reg_email.strip().lower(), reg_name.strip(), reg_pw)
+                st.success(
+                    f"**{reg_name.strip()}**님의 가입 신청이 완료되었습니다.  \n"
+                    "관리자 승인 후 로그인 탭에서 로그인하실 수 있습니다."
+                )
 
     st.stop()
 
 # ── 로그인 성공 — 메인 대시보드 ──────────────────────────────
-name = st.session_state.get("name", "")
+name     = st.session_state.get("name", "")
+username = st.session_state.get("username", "")
 
 with st.sidebar:
     st.title("📊 CFG Cost Lab")
@@ -135,7 +104,6 @@ with st.sidebar:
 
 st.title("📊 CFG Cost Lab")
 st.subheader("카페게이트 원가율 진단·시뮬레이션 도구")
-
 st.markdown("---")
 
 col1, col2 = st.columns(2)

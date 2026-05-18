@@ -1,0 +1,19 @@
+credentials:
+  usernames:
+    inho:
+      email: inho@cafegate.co.kr
+      name: 장인호 MD
+      password: $2b$12$s7ey.M.fwaEh2iz.y4iEwOIPrvYzEgBzkYPjfHAFzAQMp92q/m3GO
+    admin:
+      email: admin@cafegate.co.kr
+      name: 관리자
+      password: $2b$12$1XXrvIT.H.H3FI4kyVC9G.70bCKVhl.cAfTkCm3Zffe4Id01GgBBe
+    manager:
+      email: manager@cafegate.co.kr
+      name: 본부장
+      password: $2b$12$E5PNxc8KBzSzsUEWI9xRLuA.75y0d0l.Jm0vRtPndKLS8Ohkl8qx.
+
+cookie:
+  expiry_days: 1
+  key: cfg_cost_lab_secret_key
+  name: cfg_cost_lab_auth

@@ -16,11 +16,10 @@ __pycache__/
 venv/
 env/
 
-# Streamlit 캐시
-.streamlit/
+# Streamlit 캐시 (로컬 캐시만 제외, secrets.toml은 포함)
+.streamlit/cache/
 
-# 로그인 설정 (비밀번호 해시 포함)
-config.yaml
+# 가입 대기 목록 (동적 파일, 로컬 전용)
 pending_users.yaml
 
 # 환경변수 (SMTP 비밀번호 포함)

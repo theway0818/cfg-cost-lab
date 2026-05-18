@@ -34,7 +34,11 @@ def _save_pending(pending: dict) -> None:
 
 
 def get_allowed_domain() -> str:
-    return os.environ.get("ALLOWED_DOMAIN", "ephgroup.co.kr")
+    try:
+        import streamlit as st
+        return st.secrets.get("ALLOWED_DOMAIN", os.environ.get("ALLOWED_DOMAIN", "ephgroup.co.kr"))
+    except Exception:
+        return os.environ.get("ALLOWED_DOMAIN", "ephgroup.co.kr")
 
 
 def is_email_registered(email: str) -> bool:
